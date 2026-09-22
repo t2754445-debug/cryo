@@ -448,6 +448,13 @@ textarea{
 }
 .copy:hover{opacity:.88}
 .copy[data-done="1"]{background:#1f7a3f;color:#fff}
+.copy-quiet{
+  margin-top:10px;
+  background:none;color:var(--ink);
+  border:1px solid var(--rule);
+  font-weight:500;font-size:16px;padding:13px 24px;
+}
+.copy-quiet:hover{opacity:1;border-color:var(--ink-dim)}
 .fineprint{color:var(--ink-dim);font-size:14px;margin-top:14px}
 .reset{
   background:none;border:none;color:var(--ink-dim);
@@ -502,7 +509,7 @@ textarea{
 
   <h1>Каким будет стиль CryoOne</h1>
   <p class="lead">Шесть экранов. На каждом ткни то, что ближе — формулировать ничего не надо, за это отвечает сам выбор.</p>
-  <p>В конце одна кнопка: текст скопируется, останется прислать в Телеграм. Выбор сохраняется, можно закрыть и вернуться.</p>
+  <p>В конце кнопка — текст уйдёт в Телеграм готовым, набирать ничего не надо. Выбор сохраняется, можно закрыть и вернуться.</p>
   <button class="start" id="start" type="button">Начать</button>
 </header>
 
@@ -1019,15 +1026,16 @@ textarea{
 <!-- ============ РЕЗУЛЬТАТ ============ -->
 <section class="result" id="result">
   <h2 style="font-size:clamp(22px,5.4vw,30px);font-weight:600;letter-spacing:-.015em;margin:0 0 8px">Готово</h2>
-  <p style="color:var(--ink-dim);margin:0 0 22px;max-width:40ch">Ниже собралось то, что выбрано. Можно дописать своими словами — и копировать.</p>
+  <p style="color:var(--ink-dim);margin:0 0 22px;max-width:40ch">Ниже собралось то, что выбрано. Можно дописать своими словами — и отправлять.</p>
 
   <label class="note-label" for="note">Своими словами — если что-то важное не попало в варианты</label>
   <textarea id="note" placeholder="Например: у конкурента видел листовку, там капсула на чёрном и больше ничего — вот это близко."></textarea>
 
   <div class="preview" id="preview" aria-live="polite"></div>
 
-  <button class="copy" id="copy" type="button">Скопировать результат</button>
-  <p class="fineprint">Ничего не уходит само. Текст копируется в буфер, отправить его нужно вручную.</p>
+  <button class="copy" id="send" type="button">Отправить в Телеграм</button>
+  <button class="copy copy-quiet" id="copy" type="button">Просто скопировать</button>
+  <p class="fineprint">Кнопка откроет чат в Телеграме с готовым текстом — останется нажать «Отправить». Текст заодно ложится в буфер, на всякий случай.</p>
   <button class="reset" id="reset" type="button">Сбросить всё и начать заново</button>
 </section>
 
@@ -1274,37 +1282,76 @@ note.addEventListener("input", function(){
   document.getElementById("preview").textContent = compose();
 });
 
+var TG = "vh220";
+
+/* Чат открывается напрямую, текст идёт параметром.
+   В буфер кладём всегда: если клиент параметр проигнорирует,
+   чат всё равно откроется и текст будет готов к вставке. */
+function copyText(text){
+  return new Promise(function(resolve, reject){
+    function fallback(){
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try{ ok = document.execCommand("copy"); }catch(e){}
+      document.body.removeChild(ta);
+      if(ok) resolve(); else reject();
+    }
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(resolve, fallback);
+    } else {
+      fallback();
+    }
+  });
+}
+
+function nothingPicked(){
+  var note = state.note.trim();
+  return GROUPS.every(function(g){ return state[g].length === 0; }) && !note;
+}
+
+function nudge(btn, label){
+  var was = btn.textContent;
+  btn.textContent = label;
+  setTimeout(function(){ btn.textContent = was; }, 2400);
+}
+
+function flash(btn, label){
+  var was = btn.textContent;
+  btn.textContent = label;
+  btn.dataset.done = "1";
+  setTimeout(function(){
+    btn.textContent = was;
+    btn.dataset.done = "";
+  }, 2600);
+}
+
 var copyBtn = document.getElementById("copy");
 copyBtn.addEventListener("click", function(){
+  if(nothingPicked()){ nudge(copyBtn, "Сначала отметь хоть что-то"); jump(document.getElementById("s1")); return; }
   var text = compose();
-  function done(){
-    copyBtn.textContent = "Скопировано";
-    copyBtn.dataset.done = "1";
-    setTimeout(function(){
-      copyBtn.textContent = "Скопировать результат";
-      copyBtn.dataset.done = "";
-    }, 2600);
-  }
-  function fallback(){
-    var ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.top = "-1000px";
-    document.body.appendChild(ta);
-    ta.select();
-    ta.setSelectionRange(0, text.length);
-    var ok = false;
-    try{ ok = document.execCommand("copy"); }catch(e){}
-    document.body.removeChild(ta);
-    if(ok) done();
-    else copyBtn.textContent = "Скопируй текст выше вручную";
-  }
-  if(navigator.clipboard && window.isSecureContext){
-    navigator.clipboard.writeText(text).then(done, fallback);
-  } else {
-    fallback();
-  }
+  copyText(text).then(
+    function(){ flash(copyBtn, "Скопировано"); },
+    function(){ nudge(copyBtn, "Выдели текст выше и скопируй"); }
+  );
+});
+
+var sendBtn = document.getElementById("send");
+sendBtn.addEventListener("click", function(){
+  if(nothingPicked()){ nudge(sendBtn, "Сначала отметь хоть что-то"); jump(document.getElementById("s1")); return; }
+  var text = compose();
+  var link = "https://t.me/" + TG + "?text=" + encodeURIComponent(text);
+  /* слишком длинный адрес часть клиентов режет целиком — тогда открываем
+     чат без параметра, текст уже лежит в буфере */
+  if(link.length > 6000) link = "https://t.me/" + TG;
+  function go(){ window.location.href = link; }
+  copyText(text).then(go, go);
 });
 
 document.getElementById("reset").addEventListener("click", function(){
