@@ -56,7 +56,7 @@ try{
   --rail:660px;
   --wide:940px;
   --bar:52px;
-  --gutter:22px;
+  --gutter:24px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -123,7 +123,7 @@ button{font:inherit;color:inherit;margin:0}
   position:relative;overflow:hidden;
 }
 .panel-emblem{
-  position:absolute;right:-10px;bottom:-14px;width:96px;height:96px;
+  position:absolute;right:-20px;bottom:-22px;width:88px;height:88px;
   background:var(--im-logo) center/contain no-repeat;
   opacity:.16;filter:invert(1);pointer-events:none;
 }
@@ -137,6 +137,7 @@ button{font:inherit;color:inherit;margin:0}
   text-shadow:0 0 14px rgba(255,59,47,.45);
 }
 .panel-label{
+  position:relative;z-index:1;
   color:#c3cbe2;font-size:12.5px;line-height:1.35;letter-spacing:.01em;
 }
 .panel-label b{display:block;color:#fff;font-weight:600;font-size:14px}
